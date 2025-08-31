@@ -15,7 +15,11 @@ st.title("CSV to Excel Report Generator")
 # === FILE UPLOAD ===
 st.header("Upload Files")
 master_file = st.file_uploader("Upload Master Excel File", type=["xlsx"])
-uploaded_csvs = st.file_uploader("Upload CSV Files", type=["csv"], accept_multiple_files=True)
+uploaded_csvs = st.file_uploader(
+    "Upload CSV Files", 
+    type=["csv"], 
+    accept_multiple_files=True
+)
 
 if master_file and uploaded_csvs:
     st.success("Files uploaded successfully!")
