@@ -3,12 +3,10 @@
 import streamlit as st
 import pandas as pd
 import io
-from zipfile import ZipFile
 from datetime import datetime
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill
-from tempfile import NamedTemporaryFile
-import matplotlib.pyplot as plt
+import plotly.express as px
 
 # --- PAGE CONFIG ---
 st.set_page_config(
@@ -17,7 +15,7 @@ st.set_page_config(
     layout="wide",
 )
 
-# --- CUSTOM STYLING ---
+# --- CUSTOM CSS ---
 st.markdown("""
     <style>
         body {
@@ -58,7 +56,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- TITLE ---
+# --- APP TITLE ---
 st.title("📈 BCT Data Availability Dashboard")
 
 # --- FILE UPLOAD ---
@@ -74,15 +72,15 @@ with col2:
         accept_multiple_files=True
     )
 
-# === PROCESSING ===
+# --- PROCESS FILES ---
 if master_file and uploaded_csvs:
     st.success("✅ Files uploaded successfully!")
 
-    # --- READ MASTER FILE ---
+    # Load master excel
     master_df = pd.read_excel(master_file, engine='openpyxl')
     master_df.columns = [col.strip().title() for col in master_df.columns]
 
-    # --- READ CSV FILES ---
+    # Process CSV files
     all_data = []
     for file in uploaded_csvs:
         try:
@@ -96,10 +94,10 @@ if master_file and uploaded_csvs:
 
     compiled_df = pd.concat(all_data, ignore_index=True)
 
-    # === SHEET 1 ===
+    # === SHEET 1: COMPILED DATA ===
     sheet1 = compiled_df.merge(master_df, on='Asset Name', how='left')
 
-    # === SHEET 2 ===
+    # === SHEET 2: DATA COUNT SUMMARY ===
     sheet2_counts = compiled_df.groupby(['Asset Name', 'Date']).size().reset_index(name='Count')
     sheet2 = sheet2_counts.merge(master_df, on='Asset Name', how='left')
     sheet2 = sheet2.groupby(['Make', 'Site', 'Date'])['Count'].sum().reset_index()
@@ -107,7 +105,7 @@ if master_file and uploaded_csvs:
     sheet2_pivot.columns = [col.strftime('%d-%m-%Y') for col in sheet2_pivot.columns]
     sheet2_pivot.reset_index(inplace=True)
 
-    # === SHEET 3 ===
+    # === SHEET 3: AVAILABILITY STATUS ===
     status_rows = []
     all_dates = sorted(compiled_df['Date'].dropna().unique())
     for (make, site), group in master_df.groupby(['Make', 'Site']):
@@ -132,7 +130,7 @@ if master_file and uploaded_csvs:
         sheet2_pivot.to_excel(writer, index=False, sheet_name='Compiled Summary')
         sheet3_pivot.to_excel(writer, index=False, sheet_name='Result Data')
 
-    # === COLOR SHEET 3 (EXCEL) ===
+    # === COLOR SHEET 3 IN EXCEL ===
     output.seek(0)
     wb = load_workbook(output)
     ws = wb['Result Data']
@@ -150,7 +148,8 @@ if master_file and uploaded_csvs:
     wb.save(final_output)
     final_output.seek(0)
 
-    # === DISPLAY FUNCTIONS ===
+    # === FUNCTIONS TO DISPLAY TABLES ===
+
     def display_html_table(df, title):
         st.subheader(title)
         html = df.head(50).to_html(classes='custom-table', index=False, escape=False)
@@ -167,36 +166,34 @@ if master_file and uploaded_csvs:
         st.markdown(html, unsafe_allow_html=True)
 
     def plot_overall_pie_chart(df):
-    st.subheader("📊 Overall Data Availability")
+        st.subheader("📊 Overall Data Availability")
 
-    # Count total occurrences of each status
-    counts = df['Status'].value_counts().reset_index()
-    counts.columns = ['Status', 'Count']
+        counts = df['Status'].value_counts().reset_index()
+        counts.columns = ['Status', 'Count']
 
-    # Create a pie chart
-    fig = px.pie(
-        counts,
-        values='Count',
-        names='Status',
-        title="Overall Availability Status",
-        color='Status',
-        color_discrete_map={
-            'Data Available': 'green',
-            'Data Not Available': 'red'
-        },
-        hole=0.3  # Optional: makes it a donut chart
-    )
+        fig = px.pie(
+            counts,
+            values='Count',
+            names='Status',
+            title="Overall Availability Status",
+            color='Status',
+            color_discrete_map={
+                'Data Available': 'green',
+                'Data Not Available': 'red'
+            },
+            hole=0.3
+        )
 
-    st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True)
 
-    # === DISPLAY TABLES ===
+    # === SHOW DATA PREVIEWS ===
     st.header("🔍 Preview of Processed Data")
     display_html_table(sheet1, "🗂 Compiled Data")
     display_html_table(sheet2_pivot, "📊 Compiled Summary")
     display_status_table(sheet3_pivot)
 
-    # === DISPLAY CHARTS ===
-    plot_pie_charts(sheet3)
+    # === SHOW PIE CHART ===
+    plot_overall_pie_chart(sheet3)
 
     # === DOWNLOAD BUTTON ===
     st.download_button(
