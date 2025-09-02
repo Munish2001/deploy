@@ -166,28 +166,12 @@ if master_file and uploaded_csvs:
         html = styled_df.to_html(escape=False, index=False, classes="custom-table")
         st.markdown(html, unsafe_allow_html=True)
 
-    def plot_pie_charts(df):
-        st.subheader("📊 Data Availability Distribution (Pie Charts)")
-        grouped = df.groupby(['Make', 'Site'])
-        for (make, site), group in grouped:
-            counts = group['Status'].value_counts()
-            labels = counts.index.tolist()
-            values = counts.values.tolist()
-            fig, ax = plt.subplots()
-            ax.pie(values, labels=labels, autopct='%1.1f%%',
-                   startangle=90, colors=["#2ecc71", "#e74c3c"])
-            ax.axis('equal')
-            st.markdown(f"**{make} - {site}**")
-            st.pyplot(fig)
 
     # === DISPLAY TABLES ===
     st.header("🔍 Preview of Processed Data")
     display_html_table(sheet1, "🗂 Compiled Data")
     display_html_table(sheet2_pivot, "📊 Compiled Summary")
     display_status_table(sheet3_pivot)
-
-    # === DISPLAY CHARTS ===
-    plot_pie_charts(sheet3)
 
     # === DOWNLOAD BUTTON ===
     st.download_button(
