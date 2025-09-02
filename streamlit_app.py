@@ -184,8 +184,10 @@ if master_file and uploaded_csvs:
             'Data Available': 'green',
             'Data Not Available': 'red'
         },
-        hole=0.3  # makes it a donut chart (optional)
+        hole=0.3  # Optional: makes it a donut chart
     )
+
+    st.plotly_chart(fig, use_container_width=True)
 
     # === DISPLAY TABLES ===
     st.header("🔍 Preview of Processed Data")
