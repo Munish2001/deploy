@@ -166,7 +166,6 @@ if master_file and uploaded_csvs:
         html = styled_df.to_html(escape=False, index=False, classes="custom-table")
         st.markdown(html, unsafe_allow_html=True)
 
-
     # === DISPLAY TABLES ===
     st.header("🔍 Preview of Processed Data")
     display_html_table(sheet1, "🗂 Compiled Data")
