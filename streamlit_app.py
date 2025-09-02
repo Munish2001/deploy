@@ -1,6 +1,6 @@
 # streamlit_app.py
 
-import streamlit as st
+import streamlit as ss
 import pandas as pd
 import io
 from datetime import datetime
