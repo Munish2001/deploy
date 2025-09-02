@@ -187,6 +187,7 @@ if master_file and uploaded_csvs:
     st.plotly_chart(fig, use_container_width=True)
 
 
+
     # === SHOW DATA PREVIEWS ===
     st.header("🔍 Preview of Processed Data")
     display_html_table(sheet1, "🗂 Compiled Data")
