@@ -8,6 +8,7 @@ from datetime import datetime
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill
 from tempfile import NamedTemporaryFile
+import matplotlib.pyplot as plt
 
 # --- PAGE CONFIG ---
 st.set_page_config(
@@ -20,7 +21,7 @@ st.set_page_config(
 st.markdown("""
     <style>
         body {
-            background-color: #f7f9fa;
+            background-color: #ffffff;
         }
         .reportview-container .main .block-container {
             padding-top: 2rem;
@@ -73,6 +74,7 @@ with col2:
         accept_multiple_files=True
     )
 
+# === PROCESSING ===
 if master_file and uploaded_csvs:
     st.success("✅ Files uploaded successfully!")
 
@@ -130,7 +132,7 @@ if master_file and uploaded_csvs:
         sheet2_pivot.to_excel(writer, index=False, sheet_name='Compiled Summary')
         sheet3_pivot.to_excel(writer, index=False, sheet_name='Result Data')
 
-    # === COLOR SHEET 3 ===
+    # === COLOR SHEET 3 (EXCEL) ===
     output.seek(0)
     wb = load_workbook(output)
     ws = wb['Result Data']
@@ -148,16 +150,44 @@ if master_file and uploaded_csvs:
     wb.save(final_output)
     final_output.seek(0)
 
-    # === DATA PREVIEW ===
-    st.header("🔍 Preview of Processed Data")
-
-    def display_as_html_table(df, title):
+    # === DISPLAY FUNCTIONS ===
+    def display_html_table(df, title):
         st.subheader(title)
         html = df.head(50).to_html(classes='custom-table', index=False, escape=False)
         st.markdown(html, unsafe_allow_html=True)
 
-    display_as_html_table(sheet2_pivot, "Compiled Summary")
-    display_as_html_table(sheet3_pivot, "Result Data")
+    def display_status_table(df):
+        styled_df = df.copy()
+        for col in styled_df.columns[2:]:
+            styled_df[col] = styled_df[col].replace({
+                'Data Available': '<span style="background-color:#c6efce; color:#006100; padding:4px; border-radius:4px;">Available</span>',
+                'Data Not Available': '<span style="background-color:#ffc7ce; color:#9c0006; padding:4px; border-radius:4px;">Not Available</span>'
+            })
+        html = styled_df.to_html(escape=False, index=False, classes="custom-table")
+        st.markdown(html, unsafe_allow_html=True)
+
+    def plot_pie_charts(df):
+        st.subheader("📊 Data Availability Distribution (Pie Charts)")
+        grouped = df.groupby(['Make', 'Site'])
+        for (make, site), group in grouped:
+            counts = group['Status'].value_counts()
+            labels = counts.index.tolist()
+            values = counts.values.tolist()
+            fig, ax = plt.subplots()
+            ax.pie(values, labels=labels, autopct='%1.1f%%',
+                   startangle=90, colors=["#2ecc71", "#e74c3c"])
+            ax.axis('equal')
+            st.markdown(f"**{make} - {site}**")
+            st.pyplot(fig)
+
+    # === DISPLAY TABLES ===
+    st.header("🔍 Preview of Processed Data")
+    display_html_table(sheet1, "🗂 Compiled Data")
+    display_html_table(sheet2_pivot, "📊 Compiled Summary")
+    display_status_table(sheet3_pivot)
+
+    # === DISPLAY CHARTS ===
+    plot_pie_charts(sheet3)
 
     # === DOWNLOAD BUTTON ===
     st.download_button(
@@ -167,35 +197,5 @@ if master_file and uploaded_csvs:
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
-    def display_status_table(df):
-    styled_df = df.copy()
-    for col in styled_df.columns[2:]:
-        styled_df[col] = styled_df[col].replace({
-            'Data Available': '<span style="background-color:#c6efce; color:#006100; padding:4px; border-radius:4px;">Available</span>',
-            'Data Not Available': '<span style="background-color:#ffc7ce; color:#9c0006; padding:4px; border-radius:4px;">Not Available</span>'
-        })
-    html = styled_df.to_html(escape=False, index=False, classes="custom-table")
-    st.markdown(html, unsafe_allow_html=True)
-
-
-    import matplotlib.pyplot as plt
-
-def plot_pie_charts(df):
-    st.subheader("📊 Data Availability Distribution (Pie Charts)")
-
-    grouped = df.groupby(['Make', 'Site'])
-    for (make, site), group in grouped:
-        counts = group['Status'].value_counts()
-        labels = counts.index.tolist()
-        values = counts.values.tolist()
-
-        fig, ax = plt.subplots()
-        ax.pie(values, labels=labels, autopct='%1.1f%%',
-               startangle=90, colors=["#2ecc71", "#e74c3c"])
-        ax.axis('equal')  # Equal aspect ratio for pie
-        st.markdown(f"**{make} - {site}**")
-        st.pyplot(fig)
-
-
 else:
-    st.warning("📌 Please upload both Master Excel and CSV files to continue.")
+    st.info("Please upload both Master Excel and at least one CSV file to continue.")
