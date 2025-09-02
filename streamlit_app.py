@@ -156,7 +156,6 @@ if master_file and uploaded_csvs:
         html = df.head(50).to_html(classes='custom-table', index=False, escape=False)
         st.markdown(html, unsafe_allow_html=True)
 
-    display_as_html_table(sheet1, "Compiled Data")
     display_as_html_table(sheet2_pivot, "Compiled Summary")
     display_as_html_table(sheet3_pivot, "Result Data")
 
@@ -167,5 +166,36 @@ if master_file and uploaded_csvs:
         file_name=f"data_availability_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
+    def display_status_table(df):
+    styled_df = df.copy()
+    for col in styled_df.columns[2:]:
+        styled_df[col] = styled_df[col].replace({
+            'Data Available': '<span style="background-color:#c6efce; color:#006100; padding:4px; border-radius:4px;">Available</span>',
+            'Data Not Available': '<span style="background-color:#ffc7ce; color:#9c0006; padding:4px; border-radius:4px;">Not Available</span>'
+        })
+    html = styled_df.to_html(escape=False, index=False, classes="custom-table")
+    st.markdown(html, unsafe_allow_html=True)
+
+
+    import matplotlib.pyplot as plt
+
+def plot_pie_charts(df):
+    st.subheader("📊 Data Availability Distribution (Pie Charts)")
+
+    grouped = df.groupby(['Make', 'Site'])
+    for (make, site), group in grouped:
+        counts = group['Status'].value_counts()
+        labels = counts.index.tolist()
+        values = counts.values.tolist()
+
+        fig, ax = plt.subplots()
+        ax.pie(values, labels=labels, autopct='%1.1f%%',
+               startangle=90, colors=["#2ecc71", "#e74c3c"])
+        ax.axis('equal')  # Equal aspect ratio for pie
+        st.markdown(f"**{make} - {site}**")
+        st.pyplot(fig)
+
+
 else:
     st.warning("📌 Please upload both Master Excel and CSV files to continue.")
