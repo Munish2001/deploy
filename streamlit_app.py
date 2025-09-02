@@ -166,25 +166,26 @@ if master_file and uploaded_csvs:
         st.markdown(html, unsafe_allow_html=True)
 
     def plot_overall_pie_chart(df):
-        st.subheader("📊 Overall Data Availability")
+    st.subheader("📊 Overall Data Availability")
 
-        counts = df['Status'].value_counts().reset_index()
-        counts.columns = ['Status', 'Count']
+    counts = df['Status'].value_counts().reset_index()
+    counts.columns = ['Status', 'Count']
 
-        fig = px.pie(
-            counts,
-            values='Count',
-            names='Status',
-            title="Overall Availability Status",
-            color='Status',
-            color_discrete_map={
-                'Data Available': 'green',
-                'Data Not Available': 'red'
-            },
-            hole=0.3
-        )
+    fig = px.pie(
+        counts,
+        values='Count',
+        names='Status',
+        title="Overall Availability Status",
+        color='Status',
+        color_discrete_map={
+            'Data Available': 'green',
+            'Data Not Available': 'red'
+        },
+        hole=0.3
+    )
 
-        st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True)
+
 
     # === SHOW DATA PREVIEWS ===
     st.header("🔍 Preview of Processed Data")
