@@ -10,7 +10,7 @@ from openpyxl.styles import PatternFill
 from tempfile import NamedTemporaryFile
 
 # === APP TITLE ===
-st.title("CSV to Excel Report Generator")
+st.title("BCT Data Availability")
 
 # === FILE UPLOAD ===
 st.header("Upload Files")
