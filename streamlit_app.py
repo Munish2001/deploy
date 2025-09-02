@@ -166,19 +166,26 @@ if master_file and uploaded_csvs:
         html = styled_df.to_html(escape=False, index=False, classes="custom-table")
         st.markdown(html, unsafe_allow_html=True)
 
-    def plot_pie_charts(df):
-        st.subheader("📊 Data Availability Distribution (Pie Charts)")
-        grouped = df.groupby(['Make', 'Site'])
-        for (make, site), group in grouped:
-            counts = group['Status'].value_counts()
-            labels = counts.index.tolist()
-            values = counts.values.tolist()
-            fig, ax = plt.subplots()
-            ax.pie(values, labels=labels, autopct='%1.1f%%',
-                   startangle=90, colors=["#2ecc71", "#e74c3c"])
-            ax.axis('equal')
-            st.markdown(f"**{make} - {site}**")
-            st.pyplot(fig)
+    def plot_overall_pie_chart(df):
+    st.subheader("📊 Overall Data Availability")
+
+    # Count total occurrences of each status
+    counts = df['Status'].value_counts().reset_index()
+    counts.columns = ['Status', 'Count']
+
+    # Create a pie chart
+    fig = px.pie(
+        counts,
+        values='Count',
+        names='Status',
+        title="Overall Availability Status",
+        color='Status',
+        color_discrete_map={
+            'Data Available': 'green',
+            'Data Not Available': 'red'
+        },
+        hole=0.3  # makes it a donut chart (optional)
+    )
 
     # === DISPLAY TABLES ===
     st.header("🔍 Preview of Processed Data")
