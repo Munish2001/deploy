@@ -6,7 +6,6 @@ import io
 from datetime import datetime
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill
-import matplotlib.pyplot as plt
 
 # --- PAGE CONFIG ---
 st.set_page_config(
