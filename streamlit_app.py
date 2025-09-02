@@ -9,26 +9,78 @@ from openpyxl import load_workbook
 from openpyxl.styles import PatternFill
 from tempfile import NamedTemporaryFile
 
-# === APP TITLE ===
-st.title("BCT Data Availability")
-
-# === FILE UPLOAD ===
-st.header("Upload Files")
-master_file = st.file_uploader("Upload Master Excel File", type=["xlsx"])
-uploaded_csvs = st.file_uploader(
-    "Upload CSV Files", 
-    type=["csv"], 
-    accept_multiple_files=True
+# --- PAGE CONFIG ---
+st.set_page_config(
+    page_title="BCT Data Availability",
+    page_icon="📊",
+    layout="wide",
 )
 
-if master_file and uploaded_csvs:
-    st.success("Files uploaded successfully!")
+# --- CUSTOM STYLING ---
+st.markdown("""
+    <style>
+        body {
+            background-color: #f7f9fa;
+        }
+        .reportview-container .main .block-container {
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+        }
+        .stButton>button {
+            background-color: #009999;
+            color: white;
+            border-radius: 8px;
+            padding: 0.6em 1em;
+        }
+        .stDownloadButton>button {
+            background-color: #0066cc;
+            color: white;
+            border-radius: 8px;
+            padding: 0.6em 1em;
+            font-weight: bold;
+        }
+        h1, h2, h3 {
+            color: #004d66;
+        }
+        .custom-table thead tr {
+            background-color: #004d66;
+            color: white;
+        }
+        .custom-table td, .custom-table th {
+            border: 1px solid #ccc;
+            padding: 8px 12px;
+        }
+        .custom-table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+    </style>
+""", unsafe_allow_html=True)
 
-    # Load master file
+# --- TITLE ---
+st.title("📈 BCT Data Availability Dashboard")
+
+# --- FILE UPLOAD ---
+st.header("📂 Upload Required Files")
+
+col1, col2 = st.columns(2)
+with col1:
+    master_file = st.file_uploader("Upload Master Excel File", type=["xlsx"])
+with col2:
+    uploaded_csvs = st.file_uploader(
+        "Upload CSV Files",
+        type=["csv"],
+        accept_multiple_files=True
+    )
+
+if master_file and uploaded_csvs:
+    st.success("✅ Files uploaded successfully!")
+
+    # --- READ MASTER FILE ---
     master_df = pd.read_excel(master_file, engine='openpyxl')
     master_df.columns = [col.strip().title() for col in master_df.columns]
 
-    # Process CSV files
+    # --- READ CSV FILES ---
     all_data = []
     for file in uploaded_csvs:
         try:
@@ -42,10 +94,10 @@ if master_file and uploaded_csvs:
 
     compiled_df = pd.concat(all_data, ignore_index=True)
 
-    # === SHEET 1: COMPILED DATA ===
+    # === SHEET 1 ===
     sheet1 = compiled_df.merge(master_df, on='Asset Name', how='left')
 
-    # === SHEET 2: DATA COUNT ===
+    # === SHEET 2 ===
     sheet2_counts = compiled_df.groupby(['Asset Name', 'Date']).size().reset_index(name='Count')
     sheet2 = sheet2_counts.merge(master_df, on='Asset Name', how='left')
     sheet2 = sheet2.groupby(['Make', 'Site', 'Date'])['Count'].sum().reset_index()
@@ -53,7 +105,7 @@ if master_file and uploaded_csvs:
     sheet2_pivot.columns = [col.strftime('%d-%m-%Y') for col in sheet2_pivot.columns]
     sheet2_pivot.reset_index(inplace=True)
 
-    # === SHEET 3: AVAILABILITY STATUS ===
+    # === SHEET 3 ===
     status_rows = []
     all_dates = sorted(compiled_df['Date'].dropna().unique())
     for (make, site), group in master_df.groupby(['Make', 'Site']):
@@ -71,7 +123,7 @@ if master_file and uploaded_csvs:
     sheet3_pivot.columns = [col.strftime('%d-%m-%Y') for col in sheet3_pivot.columns]
     sheet3_pivot.reset_index(inplace=True)
 
-    # === WRITE TO EXCEL (IN-MEMORY) ===
+    # === EXPORT TO EXCEL ===
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         sheet1.to_excel(writer, index=False, sheet_name='Compiled Data')
@@ -82,7 +134,6 @@ if master_file and uploaded_csvs:
     output.seek(0)
     wb = load_workbook(output)
     ws = wb['Result Data']
-
     green_fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
     red_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
 
@@ -97,19 +148,24 @@ if master_file and uploaded_csvs:
     wb.save(final_output)
     final_output.seek(0)
 
-    # === PREVIEW DATAFRAMES ===
-    st.header("Preview Sheets")
-    with st.expander("Compiled Data"):
-        st.dataframe(sheet1.head(50))
-    with st.expander("Compiled Summary"):
-        st.dataframe(sheet2_pivot.head(50))
-    with st.expander("Result Data"):
-        st.dataframe(sheet3_pivot.head(50))
+    # === DATA PREVIEW ===
+    st.header("🔍 Preview of Processed Data")
+
+    def display_as_html_table(df, title):
+        st.subheader(title)
+        html = df.head(50).to_html(classes='custom-table', index=False, escape=False)
+        st.markdown(html, unsafe_allow_html=True)
+
+    display_as_html_table(sheet1, "Compiled Data")
+    display_as_html_table(sheet2_pivot, "Compiled Summary")
+    display_as_html_table(sheet3_pivot, "Result Data")
 
     # === DOWNLOAD BUTTON ===
     st.download_button(
-        label="📥 Download Excel File",
+        label="📥 Download Final Excel File",
         data=final_output,
-        file_name=f"final_output_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+        file_name=f"data_availability_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+else:
+    st.warning("📌 Please upload both Master Excel and CSV files to continue.")
