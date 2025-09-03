@@ -12,6 +12,7 @@ from openpyxl.utils import get_column_letter
 from openpyxl.formatting.rule import ColorScaleRule
 import matplotlib.pyplot as plt
 import zipfile
+from io import BytesIO 
 
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="Multi-Process App", page_icon="🔧", layout="wide")
