@@ -198,8 +198,6 @@ if master_file and uploaded_csvs:
 else:
     st.info("Please upload both Master Excel and at least one CSV file to continue.")
 
-  st.info("🔁 Please refer to the original process code block and paste it here in full.")
-
 # --- PROCESS 2: Temperature & Power Analysis ---
 elif process_choice == "⚙️ Temperature & Power Analysis":
     st.title("⚙️ Temperature & Power Analysis Tool")
