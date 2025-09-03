@@ -70,8 +70,7 @@ if process_choice == "📊 BCT Data Availability Dashboard":
     """, unsafe_allow_html=True)
 
     # --- TITLE ---
-    st.title("📈 BCT Data Availability Dashboard")
-
+    
     # --- FILE UPLOAD ---
     st.header("📂 Upload Required Files")
 
