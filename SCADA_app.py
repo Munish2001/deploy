@@ -313,7 +313,7 @@ elif process_choice == "⚙️ Temperature & Power Analysis":
                             cell.fill = red_fill
                             highlight_column_a(ws4, cell.row, red_fill)
 
-    def apply_heatmap(ws, header_row=1, start_row=2):
+    def apply_heatmap(ws, temp_columns, header_row=1, start_row=2):
         headers = [cell.value for cell in ws[header_row]]
     for col_name in temp_columns:
         if col_name in headers:
