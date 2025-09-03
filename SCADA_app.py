@@ -398,14 +398,7 @@ if uploaded_files:
     compiled_df, filtered_df, max_df, result_df = process_data(tmp_files)
 
     if compiled_df is not None:
-        st.subheader("Compiled Data")
-        st.dataframe(compiled_df)
-
-        st.subheader("Filtered Data (ActivepowerGeneration > 0)")
-        st.dataframe(filtered_df)
-
-        st.subheader("Max Aggregated Data")
-        st.dataframe(max_df)
+    
 
         st.subheader("Result Data with Flags")
         st.dataframe(result_df)
