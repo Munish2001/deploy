@@ -4,10 +4,27 @@
 import streamlit as st
 import pandas as pd
 import io
+import os
 from datetime import datetime
-from openpyxl import load_workbook
-from openpyxl.styles import PatternFill
+from openpyxl import Workbook, load_workbook
+from openpyxl.styles import PatternFill, Font, Border, Side
+from openpyxl.utils.dataframe import dataframe_to_rows
+from openpyxl.utils import get_column_letter
+from openpyxl.formatting.rule import ColorScaleRule
+import matplotlib.pyplot as plt
+import zipfile
 
+# --- PAGE CONFIG ---
+st.set_page_config(page_title="Multi-Process App", page_icon="🔧", layout="wide")
+
+# --- SIDEBAR MENU ---
+st.sidebar.title("🔧 Select Process")
+process_choice = st.sidebar.radio("Choose a process to run:", ["📊 BCT Data Availability Dashboard", "⚙️ Temperature & Power Analysis"])
+
+# --- PROCESS 1: Existing Dashboard ---
+if process_choice == "📊 BCT Data Availability Dashboard":
+    st.title("📈 BCT Data Availability Dashboard")
+    
 # --- PAGE CONFIG ---
 st.set_page_config(
     page_title="BCT Data Availability",
@@ -180,3 +197,195 @@ if master_file and uploaded_csvs:
 
 else:
     st.info("Please upload both Master Excel and at least one CSV file to continue.")
+
+  st.info("🔁 Please refer to the original process code block and paste it here in full.")
+
+# --- PROCESS 2: Temperature & Power Analysis ---
+elif process_choice == "⚙️ Temperature & Power Analysis":
+    st.title("⚙️ Temperature & Power Analysis Tool")
+
+    uploaded_csvs = st.file_uploader("Upload one or more CSV files", type="csv", accept_multiple_files=True)
+
+    if uploaded_csvs:
+        st.success("✅ Files uploaded. Processing...")
+
+        temp_columns = [
+            'Temperaturemeasurementforgeneratorbearingdriveend',
+            'Temperaturemeasurementforgeneratorbearingnondriveend',
+            'GearboxHighSpeedShaftDrivenEndtemp',
+            'GearboxHighSpeedShaftNonDrivenEndtemp',
+            'MeasuredTemperatureofrotorbearing',
+            'OilSumpTemp'
+        ]
+
+        required_cols = temp_columns + ['Asset Name', 'ActivepowerGeneration', 'Date']
+
+        raw_dfs = []
+        for file in uploaded_csvs:
+            try:
+                df = pd.read_csv(file)
+                if 'Date' in df.columns:
+                    df['Date'] = pd.to_datetime(df['Date'], format='%d-%m-%Y %H:%M:%S', errors='coerce')
+                if not df.empty:
+                    raw_dfs.append(df)
+            except Exception as e:
+                st.error(f"Error reading {file.name}: {e}")
+
+        if not raw_dfs:
+            st.error("No valid CSV files found.")
+            st.stop()
+
+        compiled_df = pd.concat(raw_dfs, ignore_index=True)
+
+        missing_cols = [col for col in required_cols if col not in compiled_df.columns]
+        if missing_cols:
+            st.error(f"Missing required columns: {missing_cols}")
+            st.stop()
+
+        filtered_df = compiled_df[compiled_df['ActivepowerGeneration'] > 0]
+        max_df = filtered_df.groupby('Asset Name')[temp_columns + ['ActivepowerGeneration']].max().reset_index()
+
+        result_df = max_df.copy()
+        result_df['Temp11'] = (result_df[temp_columns[0]] > 90).astype(int)
+        result_df['Temp22'] = (result_df[temp_columns[1]] > 90).astype(int)
+        result_df['Temp33'] = (result_df[temp_columns[2]] > 90).astype(int)
+        result_df['Temp44'] = (result_df[temp_columns[3]] > 90).astype(int)
+        result_df['Temp55'] = (result_df[temp_columns[4]] > 60).astype(int)
+        result_df['Temp66'] = (result_df[temp_columns[5]] > 80).astype(int)
+        result_df['TempSum'] = result_df[[f'Temp{i}' for i in [11, 22, 33, 44, 55, 66]]].sum(axis=1)
+
+        # --- EXPORT TO EXCEL ---
+        output = io.BytesIO()
+        wb = Workbook()
+        ws1 = wb.active
+        ws1.title = "Compiled Data"
+        ws2 = wb.create_sheet("Filtered Data")
+        ws3 = wb.create_sheet("Max Data")
+        ws4 = wb.create_sheet("Result Data")
+
+        for ws, df in zip([ws1, ws2, ws3, ws4], [compiled_df, filtered_df, max_df, result_df]):
+            for r in dataframe_to_rows(df, index=False, header=True):
+                ws.append(r)
+
+        # --- FORMATTING ---
+        header_fill = PatternFill(start_color='157B8F', end_color='157B8F', fill_type='solid')
+        bold_font = Font(bold=True)
+        thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+
+        for cell in ws4[1]:
+            cell.fill = header_fill
+            cell.font = bold_font
+            cell.border = thin_border
+
+        col_names = [cell.value for cell in ws4[1]]
+
+        highlight_fill_90 = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
+        highlight_fill_80 = PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid")
+        highlight_fill_60 = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
+        green_fill = PatternFill(start_color='00A400', end_color='00A400', fill_type='solid')
+        yellow_fill = PatternFill(start_color='FFFF00', end_color='FFFF00', fill_type='solid')
+        red_fill = PatternFill(start_color='FF0000', end_color='FF0000', fill_type='solid')
+
+        def highlight_column_a(ws, row, fill):
+            ws.cell(row=row, column=1).fill = fill
+
+        for row in ws4.iter_rows(min_row=2, max_row=ws4.max_row, min_col=1, max_col=ws4.max_column):
+            for cell in row:
+                col_name = col_names[cell.column - 1]
+                val = cell.value
+
+                if isinstance(val, (int, float)):
+                    if col_name in temp_columns[:4] and val > 90:
+                        cell.fill = highlight_fill_90
+                    elif col_name == 'OilSumpTemp' and val > 80:
+                        cell.fill = highlight_fill_80
+                    elif col_name == 'MeasuredTemperatureofrotorbearing' and val > 60:
+                        cell.fill = highlight_fill_60
+                    elif col_name.startswith('Temp') and 'TempSum' not in col_name and val > 0:
+                        cell.fill = yellow_fill
+
+                    if col_name == 'TempSum':
+                        if val == 0:
+                            cell.fill = green_fill
+                            highlight_column_a(ws4, cell.row, green_fill)
+                        elif val == 1:
+                            cell.fill = yellow_fill
+                            highlight_column_a(ws4, cell.row, yellow_fill)
+                        elif val > 1:
+                            cell.fill = red_fill
+                            highlight_column_a(ws4, cell.row, red_fill)
+
+        def apply_heatmap(ws, header_row=1, start_row=2):
+            headers = [cell.value for cell in ws[header_row]]
+            for col in temp_columns:
+                if col in headers:
+                    idx = headers.index(col) + 1
+                    col_letter = get_column_letter(idx)
+                    rule = ColorScaleRule(start_type='min', start_color='63BE7B', mid_type='percentile', mid_value=50, mid_color='FFEB84', end_type='max', end_color='F8696B')
+                    ws.conditional_formatting.add(f"{col_letter}{start_row}:{col_letter}{ws.max_row}", rule)
+
+        apply_heatmap(ws4)
+        wb.save(output)
+        output.seek(0)
+
+        # --- DOWNLOAD EXCEL ---
+        st.download_button(
+            label="📥 Download Excel Report",
+            data=output,
+            file_name=f"temp_power_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
+        # --- CHARTS ---
+        st.subheader("📈 Charts for Assets with Temperature Exceedance")
+        chart_zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(chart_zip_buffer, "a", zipfile.ZIP_DEFLATED) as zipf:
+            for asset, group in compiled_df.groupby('Asset Name'):
+                exceeded_cols = []
+                thresholds = {
+                    'Temperaturemeasurementforgeneratorbearingdriveend': 90,
+                    'Temperaturemeasurementforgeneratorbearingnondriveend': 90,
+                    'GearboxHighSpeedShaftDrivenEndtemp': 90,
+                    'GearboxHighSpeedShaftNonDrivenEndtemp': 90,
+                    'MeasuredTemperatureofrotorbearing': 60,
+                    'OilSumpTemp': 80,
+                }
+
+                for col, limit in thresholds.items():
+                    if col in group.columns and (group[col] > limit).any():
+                        exceeded_cols.append(col)
+
+                if not exceeded_cols:
+                    continue
+
+                plt.figure(figsize=(14, 6))
+                for col in exceeded_cols:
+                    limit = thresholds[col]
+                    plt.plot(group['Date'], group[col], label=col)
+                    exceed_rows = group[group[col] > limit]
+                    if not exceed_rows.empty:
+                        plt.scatter(exceed_rows['Date'], exceed_rows[col], color='red', label=f'{col} Exceed')
+                    plt.axhline(y=limit, linestyle='--', color='black', linewidth=1, label=f'{col} Limit: {limit}°C')
+
+                plt.title(f'Temperature Exceedance for {asset}')
+                plt.xlabel('Date')
+                plt.ylabel('Temperature (°C)')
+                plt.xticks(rotation=45)
+                plt.legend(loc='upper right')
+                plt.tight_layout()
+
+                chart_buf = io.BytesIO()
+                plt.savefig(chart_buf, format='png')
+                zipf.writestr(f"{asset}.png", chart_buf.getvalue())
+                plt.close()
+
+        chart_zip_buffer.seek(0)
+        st.download_button(
+            label="📦 Download All Charts (ZIP)",
+            data=chart_zip_buffer,
+            file_name="temperature_charts.zip",
+            mime="application/zip"
+        )
+
+
+
