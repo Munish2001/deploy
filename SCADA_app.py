@@ -314,4 +314,36 @@ elif process_choice == "⚙️ Temperature & Power Analysis":
                             highlight_column_a(ws4, cell.row, red_fill)
 
         def apply_heatmap(ws, header_row=1, start_row=2):
-            headers = [
+            headers = [cell.value for cell in ws[header_row]]
+            # Find columns for heatmap: temps only
+            temp_cols = [i + 1 for i, h in enumerate(headers) if h in temp_columns]
+
+        for col in temp_cols:
+                col_letter = get_column_letter(col)
+                # Apply color scale to cells below header
+                rule = ColorScaleRule(start_type='min', start_color='63BE7B',
+                                      mid_type='percentile', mid_value=50, mid_color='FFEB84',
+                                      end_type='max', end_color='F8696B')
+                ws.conditional_formatting.add(f"{col_letter}{start_row}:{col_letter}{ws.max_row}", rule)
+
+        apply_heatmap(ws4)
+
+        # Save final workbook to output
+        final_output = io.BytesIO()
+        wb.save(final_output)
+        final_output.seek(0)
+
+        # Show preview of result dataframe
+        st.header("🔍 Preview of Result Data")
+        st.dataframe(result_df.style.background_gradient(cmap='RdYlGn_r'))
+
+        # Download button
+        st.download_button(
+            label="📥 Download Temperature & Power Analysis Excel",
+            data=final_output,
+            file_name=f"temp_power_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
+    else:
+        st.info("Please upload CSV files to start analysis.")
