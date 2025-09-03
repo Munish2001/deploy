@@ -318,7 +318,7 @@ elif process_choice == "⚙️ Temperature & Power Analysis":
             # Find columns for heatmap: temps only
             temp_cols = [i + 1 for i, h in enumerate(headers) if h in temp_columns]
 
-        for col in temp_cols:
+        for col in temp_columns:
                 col_letter = get_column_letter(col)
                 # Apply color scale to cells below header
                 rule = ColorScaleRule(start_type='min', start_color='63BE7B',
