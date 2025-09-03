@@ -26,11 +26,7 @@ if process_choice == "📊 BCT Data Availability Dashboard":
     st.title("📈 BCT Data Availability Dashboard")
     
     # --- PAGE CONFIG ---
-    st.set_page_config(
-        page_title="BCT Data Availability",
-        page_icon="📊",
-        layout="wide",
-    )
+
 
     # --- CUSTOM STYLING ---
     st.markdown("""
