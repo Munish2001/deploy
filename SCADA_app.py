@@ -195,11 +195,11 @@ if master_file and uploaded_csvs:
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
-else:
+elif
     st.info("Please upload both Master Excel and at least one CSV file to continue.")
 
 # --- PROCESS 2: Temperature & Power Analysis ---
-elif process_choice == "⚙️ Temperature & Power Analysis":
+else: process_choice == "⚙️ Temperature & Power Analysis":
     st.title("⚙️ Temperature & Power Analysis Tool")
 
     uploaded_csvs = st.file_uploader("Upload one or more CSV files", type="csv", accept_multiple_files=True)
