@@ -178,8 +178,6 @@ if process_choice == "📊 BCT Data Availability Dashboard":
 
         # === DISPLAY TABLES ===
         st.header("🔍 Preview of Processed Data")
-        display_html_table(sheet1, "🗂 Compiled Data")
-        display_html_table(sheet2_pivot, "📊 Compiled Summary")
         display_status_table(sheet3_pivot)
 
         # === DOWNLOAD BUTTON ===
