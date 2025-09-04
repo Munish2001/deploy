@@ -6,6 +6,8 @@ import io
 from datetime import datetime
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill
+from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
+from st_aggrid.shared import GridUpdateMode
 
 # --- PAGE CONFIG ---
 st.set_page_config(
@@ -177,5 +179,97 @@ if master_file and uploaded_csvs:
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
+# === Streamlit UI ===
+
+uploaded_files = st.file_uploader("Upload CSV files", accept_multiple_files=True, type='csv')
+
+if uploaded_files:
+    # Save uploaded files to temp dir (in-memory)
+    tmp_files = []
+    for uploaded_file in uploaded_files:
+        tmp_files.append(uploaded_file)
+
+    # Process files
+    compiled_df, filtered_df, max_df, result_df = process_data(tmp_files)
+
+    if compiled_df is not None:
+
+        st.subheader("📊 Result Data with Flags (Interactive Grid with Filters)")
+
+        # Add color column (for optional display logic)
+        styled_result_df = result_df.copy()
+        styled_result_df['Color'] = styled_result_df['TempSum'].apply(lambda x: 'red' if x > 1 else 'yellow' if x == 1 else 'green')
+
+        # AgGrid configuration
+        gb = GridOptionsBuilder.from_dataframe(styled_result_df)
+        gb.configure_pagination(paginationAutoPageSize=True)
+        gb.configure_default_column(
+            wrapText=True,
+            autoHeight=True,
+            resizable=True,
+            filter=True,
+            sortable=True
+        )
+
+        # JavaScript code to color cells conditionally
+        cell_style_jscode = JsCode("""
+        function(params) {
+            if (params.colDef.field == 'TempSum') {
+                if (params.value > 1) {
+                    return {backgroundColor: 'red', color: 'white', fontWeight: 'bold'};
+                } else if (params.value == 1) {
+                    return {backgroundColor: 'yellow', color: 'black', fontWeight: 'bold'};
+                } else {
+                    return {backgroundColor: 'green', color: 'white', fontWeight: 'bold'};
+                }
+            }
+
+            if (params.colDef.field.startsWith('Temp') && params.colDef.field !== 'TempSum') {
+                if (params.value == 1) {
+                    return {backgroundColor: '#FF9999'};
+                }
+            }
+
+            return {};
+        }
+        """)
+
+        # Apply the JS style to columns
+        gb.configure_columns(
+            ['Temp11', 'Temp22', 'Temp33', 'Temp44', 'Temp55', 'Temp66', 'TempSum'],
+            cellStyle=cell_style_jscode
+        )
+
+        gridOptions = gb.build()
+
+        # Display interactive styled AgGrid
+        AgGrid(
+            styled_result_df,
+            gridOptions=gridOptions,
+            height=600,
+            width='100%',
+            theme="streamlit",  # Other options: "light", "dark", "blue"
+            update_mode=GridUpdateMode.NO_UPDATE,
+            fit_columns_on_grid_load=True
+        )
+
+        # Export Excel
+        excel_buffer = create_excel(compiled_df, filtered_df, max_df, result_df)
+        st.download_button(
+            label="📥 Download Excel Report",
+            data=excel_buffer,
+            file_name="final_report.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
+        # Show charts
+        st.subheader("📈 Temperature Exceedance Charts")
+        charts = plot_exceedance_charts(compiled_df)
+        for asset, fig in charts.items():
+            st.markdown(f"**{asset}**")
+            st.pyplot(fig)
+
+else:
+    st.info("Please upload CSV files to begin processing.")
 else:
     st.info("Please upload both Master Excel and at least one CSV file to continue.")
