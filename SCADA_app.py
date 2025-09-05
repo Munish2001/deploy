@@ -349,10 +349,8 @@ def create_excel(compiled_df, filtered_df, max_df, result_df):
 def plot_exceedance_charts_plotly(compiled_df, selected_metrics):
     charts = {}
     for asset, group in compiled_df.groupby('Asset Name'):
-        exceeded_cols = []
-        for col in selected_metrics:
-            if col in group.columns and (group[col] > thresholds.get(col, 999)).any():
-                exceeded_cols.append(col)
+        # Always include all selected metrics
+        exceeded_cols = [col for col in selected_metrics if col in group.columns]
 
         if not exceeded_cols:
             continue
@@ -364,6 +362,7 @@ def plot_exceedance_charts_plotly(compiled_df, selected_metrics):
             value_name="Value"
         )
 
+        # Add threshold limits for plotting (if applicable)
         melted_df["Limit"] = melted_df["Metric"].map(thresholds)
 
         fig = px.line(
@@ -371,20 +370,22 @@ def plot_exceedance_charts_plotly(compiled_df, selected_metrics):
             x="Date",
             y="Value",
             color="Metric",
-            title=f"📈 Temperature Exceedance for {asset}",
+            title=f"📈 Temperature Chart for {asset}",
             template="plotly_dark",
             markers=True
         )
 
+        # Add threshold lines
         for metric in exceeded_cols:
-            limit = thresholds[metric]
-            fig.add_hline(
-                y=limit,
-                line_dash="dash",
-                line_color="white",
-                annotation_text=f"{metric} Limit: {limit}°C",
-                annotation_position="top right"
-            )
+            limit = thresholds.get(metric)
+            if limit:
+                fig.add_hline(
+                    y=limit,
+                    line_dash="dash",
+                    line_color="white",
+                    annotation_text=f"{metric} Limit: {limit}°C",
+                    annotation_position="top right"
+                )
 
         fig.update_layout(
             xaxis_title="Date",
