@@ -45,48 +45,49 @@ if uploaded_file is not None:
 
     # Step 4: Filter and Plot
     if selected_assets and selected_columns and len(selected_date_range) == 2:
-    start_date, end_date = selected_date_range
-    mask = (
-        df[asset_column].isin(selected_assets) &
-        (df[date_column] >= pd.to_datetime(start_date)) &
-        (df[date_column] <= pd.to_datetime(end_date))
-    )
-    filtered_df = df[mask]
-
-    if not filtered_df.empty:
-        st.write("### 📈 Interactive Line Chart (Plotly)")
-
-        # Melt data for Plotly (long format)
-        melted_df = filtered_df.melt(
-            id_vars=[date_column, asset_column],
-            value_vars=selected_columns,
-            var_name="Metric",
-            value_name="Value"
+        start_date, end_date = selected_date_range
+        mask = (
+            df[asset_column].isin(selected_assets) &
+            (df[date_column] >= pd.to_datetime(start_date)) &
+            (df[date_column] <= pd.to_datetime(end_date))
         )
+        filtered_df = df[mask]
 
-        # Combine Asset and Metric for legend clarity
-        melted_df["Series"] = melted_df[asset_column] + " - " + melted_df["Metric"]
+        if not filtered_df.empty:
+            st.write("### 📈 Interactive Line Chart (Plotly)")
 
-        # Create Plotly chart
-        fig = px.line(
-            melted_df,
-            x=date_column,
-            y="Value",
-            color="Series",
-            title="Line Chart of Selected Metrics by Asset",
-            template="plotly_dark",  # Dark mode
-            markers=True
-        )
+            # Melt data for Plotly (long format)
+            melted_df = filtered_df.melt(
+                id_vars=[date_column, asset_column],
+                value_vars=selected_columns,
+                var_name="Metric",
+                value_name="Value"
+            )
 
-        fig.update_layout(
-            legend_title_text="Assets & Metrics",
-            xaxis_title="Date",
-            yaxis_title="Values",
-            hovermode="x unified"
-        )
+            # Combine Asset and Metric for legend clarity
+            melted_df["Series"] = melted_df[asset_column] + " - " + melted_df["Metric"]
 
-        st.plotly_chart(fig, use_container_width=True)
+            # Create Plotly chart
+            fig = px.line(
+                melted_df,
+                x=date_column,
+                y="Value",
+                color="Series",
+                title="Line Chart of Selected Metrics by Asset",
+                template="plotly_dark",  # Dark theme like your screenshot
+                markers=True
+            )
+
+            fig.update_layout(
+                legend_title_text="Assets & Metrics",
+                xaxis_title="Date",
+                yaxis_title="Values",
+                hovermode="x unified"
+            )
+
+            st.plotly_chart(fig, use_container_width=True)
+
+        else:
+            st.warning("No data available for the selected filters.")
     else:
-        st.warning("No data available for the selected filters.")
-else:
-    st.warning("Please select Asset(s), Column(s), and Date Range to plot.")
+        st.warning("Please select Asset(s), Column(s), and Date Range to plot.")
