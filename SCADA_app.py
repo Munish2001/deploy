@@ -349,46 +349,42 @@ def create_excel(compiled_df, filtered_df, max_df, result_df):
 def plot_exceedance_charts_plotly(compiled_df, selected_metrics):
     charts = {}
     for asset, group in compiled_df.groupby('Asset Name'):
-        if asset not in selected_assets:
-            continue
-        plot_columns = [col for col in selected_metrics if col in group.columns]
+        exceeded_cols = []
+        for col in selected_metrics:
+            if col in group.columns and (group[col] > thresholds.get(col, 999)).any():
+                exceeded_cols.append(col)
 
-        if not plot_columns:
+        if not exceeded_cols:
             continue
 
-        # Melt data for Plotly
         melted_df = group.melt(
             id_vars=["Date"],
-            value_vars=plot_columns,
+            value_vars=exceeded_cols,
             var_name="Metric",
             value_name="Value"
         )
 
-        # Add limit lines for only selected metrics
         melted_df["Limit"] = melted_df["Metric"].map(thresholds)
 
-        # Build interactive plot
         fig = px.line(
             melted_df,
             x="Date",
             y="Value",
             color="Metric",
-            title=f"📈 Temperature Trends for {asset}",
+            title=f"📈 Temperature Exceedance for {asset}",
             template="plotly_dark",
             markers=True
         )
 
-        # Add limit lines for all metrics being plotted
-        for metric in plot_columns:
-            if metric in thresholds:
-                limit = thresholds[metric]
-                fig.add_hline(
-                    y=limit,
-                    line_dash="dash",
-                    line_color="white",
-                    annotation_text=f"{metric} Limit: {limit}°C",
-                    annotation_position="top right"
-                )
+        for metric in exceeded_cols:
+            limit = thresholds[metric]
+            fig.add_hline(
+                y=limit,
+                line_dash="dash",
+                line_color="white",
+                annotation_text=f"{metric} Limit: {limit}°C",
+                annotation_position="top right"
+            )
 
         fig.update_layout(
             xaxis_title="Date",
@@ -414,15 +410,15 @@ if uploaded_files:
     compiled_df, filtered_df, max_df, result_df = process_data(tmp_files)
 
     if compiled_df is not None:
-    st.subheader("Filter Options")  # <-- indented here
+    st.subheader("Filter Options")
 
-    # Assets selection - unique asset names from compiled_df
+    # Asset selection
     assets = compiled_df['Asset Name'].unique()
     selected_assets = st.multiselect("Select Assets:", options=assets, default=assets)
 
-    # Temperature parameters selection
+    # Temperature parameter selection
     selected_metrics = st.multiselect(
-        "Select temperature parameters:",
+        "Select Temperature Parameters:",
         options=temp_columns,
         default=temp_columns
     )
@@ -440,12 +436,11 @@ if uploaded_files:
     # === Apply Filters ===
     filtered_view_df = compiled_df.copy()
 
-    # 1. Filter by selected assets
     if selected_assets:
         filtered_view_df = filtered_view_df[filtered_view_df['Asset Name'].isin(selected_assets)]
+        result_df = result_df[result_df['Asset Name'].isin(selected_assets)]
 
-    # 2. Filter by selected date range
-    if len(selected_date_range) == 2:
+    if selected_date_range and len(selected_date_range) == 2:
         start_date = pd.to_datetime(selected_date_range[0])
         end_date = pd.to_datetime(selected_date_range[1])
         filtered_view_df = filtered_view_df[
@@ -453,36 +448,17 @@ if uploaded_files:
             (filtered_view_df['Date'] <= end_date)
         ]
 
-    # 3. Re-filter filtered_df (active power > 0) based on filtered_view_df
-    filtered_filtered_df = filtered_view_df[filtered_view_df['ActivepowerGeneration'] > 0]
-
-    # 4. Recalculate max_df based on filtered data
-    max_df = filtered_filtered_df.groupby('Asset Name')[temp_columns + ['ActivepowerGeneration']].max().reset_index()
-
-    # 5. Recalculate result_df flags
-    result_df = max_df.copy()
-    result_df['Temp11'] = (result_df[temp_columns[0]] > 90).astype(int)
-    result_df['Temp22'] = (result_df[temp_columns[1]] > 90).astype(int)
-    result_df['Temp33'] = (result_df[temp_columns[2]] > 90).astype(int)
-    result_df['Temp44'] = (result_df[temp_columns[3]] > 90).astype(int)
-    result_df['Temp55'] = (result_df[temp_columns[4]] > 60).astype(int)
-    result_df['Temp66'] = (result_df[temp_columns[5]] > 80).astype(int)
-    result_df['TempSum'] = result_df[['Temp11', 'Temp22', 'Temp33', 'Temp44', 'Temp55', 'Temp66']].sum(axis=1)
-
-    # 6. Filter columns of result_df to show based on selected_metrics
-    cols_to_show = ['Asset Name', 'ActivepowerGeneration'] + selected_metrics + ['Temp11', 'Temp22', 'Temp33', 'Temp44', 'Temp55', 'Temp66', 'TempSum']
-
     if filtered_view_df.empty:
         st.warning("⚠️ No data matching selected filters.")
     else:
         st.success(f"✅ Showing data for {len(filtered_view_df)} rows.")
 
-        # Show filtered result table with selected columns
+        # Show result table
         st.subheader("📋 Result Data with Flags")
-        st.dataframe(result_df[cols_to_show])
+        st.dataframe(result_df)
 
-        # Excel download - pass filtered dfs!
-        excel_buffer = create_excel(filtered_view_df, filtered_filtered_df, max_df, result_df)
+        # Excel download
+        excel_buffer = create_excel(compiled_df, filtered_df, max_df, result_df)
         st.download_button(
             label="Download Excel Report",
             data=excel_buffer,
@@ -492,8 +468,6 @@ if uploaded_files:
 
         # Filtered Charts
         st.subheader("📈 Temperature Exceedance Charts")
-
-        # Pass filtered data and selected metrics for plotting
         charts = plot_exceedance_charts_plotly(filtered_view_df, selected_metrics)
 
         if not charts:
