@@ -433,7 +433,7 @@ if uploaded_files:
         charts = plot_exceedance_charts_plotly(compiled_df)
         for asset, fig in charts.items():
             st.markdown(f"**{asset}**")
-            st.pyplot(fig)
+            st.plotly_chart(fig, use_container_width=True)
 
 else:
     st.info("Please upload CSV files to begin processing.")
