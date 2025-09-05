@@ -414,26 +414,67 @@ if uploaded_files:
     compiled_df, filtered_df, max_df, result_df = process_data(tmp_files)
 
     if compiled_df is not None:
-    
+        st.subheader("🔍 Filter Options")
 
-        st.subheader("Result Data with Flags")
-        st.dataframe(result_df)
+        # --- Asset Name Filter ---
+        asset_names = compiled_df['Asset Name'].dropna().unique().tolist()
+        selected_assets = st.multiselect("Select Asset(s)", asset_names, default=asset_names)
 
-        # Export Excel
-        excel_buffer = create_excel(compiled_df, filtered_df, max_df, result_df)
-        st.download_button(
-            label="Download Excel Report",
-            data=excel_buffer,
-            file_name="final_report.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+        # --- Temperature Column Filter ---
+        available_temp_cols = [col for col in temp_columns if col in compiled_df.columns]
+        selected_temp_cols = st.multiselect("Select Temperature Columns", available_temp_cols, default=available_temp_cols)
 
-        # Show charts
-        st.subheader("Temperature Exceedance Charts")
-        charts = plot_exceedance_charts_plotly(compiled_df)
-        for asset, fig in charts.items():
-            st.markdown(f"**{asset}**")
-            st.plotly_chart(fig, use_container_width=True)
+        # --- Date Range Filter ---
+        try:
+            date_min = compiled_df['Date'].min().date()
+            date_max = compiled_df['Date'].max().date()
+            date_range = st.date_input("Select Date Range", [date_min, date_max])
+        except Exception as e:
+            st.warning("Date column error. Check your 'Date' format.")
+            st.stop()
 
-else:
-    st.info("Please upload CSV files to begin processing.")
+        # === Apply Filters ===
+        filtered_view_df = compiled_df.copy()
+
+        if selected_assets:
+            filtered_view_df = filtered_view_df[filtered_view_df['Asset Name'].isin(selected_assets)]
+            result_df = result_df[result_df['Asset Name'].isin(selected_assets)]
+
+        if len(date_range) == 2:
+            start_date = pd.to_datetime(date_range[0])
+            end_date = pd.to_datetime(date_range[1])
+            filtered_view_df = filtered_view_df[
+                (filtered_view_df['Date'] >= start_date) &
+                (filtered_view_df['Date'] <= end_date)
+            ]
+
+        if filtered_view_df.empty:
+            st.warning("⚠️ No data matching selected filters.")
+        else:
+            st.success(f"✅ Showing data for {len(filtered_view_df)} rows.")
+
+            # Show result table
+            st.subheader("📋 Result Data with Flags")
+            st.dataframe(result_df)
+
+            # Excel download
+            excel_buffer = create_excel(compiled_df, filtered_df, max_df, result_df)
+            st.download_button(
+                label="Download Excel Report",
+                data=excel_buffer,
+                file_name="final_report.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+
+            # Filtered Charts
+            st.subheader("📈 Temperature Exceedance Charts")
+
+            # Only plot for filtered assets
+            charts = plot_exceedance_charts_plotly(filtered_view_df)
+
+            if not charts:
+                st.info("No temperature exceedance detected for selected filters.")
+            else:
+                for asset, fig in charts.items():
+                    st.markdown(f"**{asset}**")
+                    st.plotly_chart(fig, use_container_width=True)
