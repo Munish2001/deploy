@@ -349,23 +349,20 @@ def create_excel(compiled_df, filtered_df, max_df, result_df):
 def plot_exceedance_charts_plotly(compiled_df):
     charts = {}
     for asset, group in compiled_df.groupby('Asset Name'):
-        exceeded_cols = []
-        for col, limit in thresholds.items():
-            if col in group.columns and (group[col] > limit).any():
-                exceeded_cols.append(col)
-
-        if not exceeded_cols:
+        plot_columns = [col for col in temp_columns if col in group.columns]
+        
+        if not plot_columns:
             continue
 
         # Melt data for Plotly (long format)
         melted_df = group.melt(
             id_vars=["Date"],
-            value_vars=exceeded_cols,
+            value_vars=plot_columns,
             var_name="Metric",
             value_name="Value"
         )
 
-        # Add column for limit lines
+        # Add column for limit lines (even if not exceeded)
         melted_df["Limit"] = melted_df["Metric"].map(thresholds)
 
         # Build interactive plot
@@ -374,21 +371,22 @@ def plot_exceedance_charts_plotly(compiled_df):
             x="Date",
             y="Value",
             color="Metric",
-            title=f"📈 Temperature Exceedance for {asset}",
+            title=f"📈 Temperature Trends for {asset}",
             template="plotly_dark",
             markers=True
         )
 
-        # Add limit lines
-        for metric in exceeded_cols:
-            limit = thresholds[metric]
-            fig.add_hline(
-                y=limit,
-                line_dash="dash",
-                line_color="white",
-                annotation_text=f"{metric} Limit: {limit}°C",
-                annotation_position="top right"
-            )
+        # Add limit lines for all metrics being plotted
+        for metric in plot_columns:
+            if metric in thresholds:
+                limit = thresholds[metric]
+                fig.add_hline(
+                    y=limit,
+                    line_dash="dash",
+                    line_color="white",
+                    annotation_text=f"{metric} Limit: {limit}°C",
+                    annotation_position="top right"
+                )
 
         fig.update_layout(
             xaxis_title="Date",
