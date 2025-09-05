@@ -30,7 +30,7 @@ uploaded_files = st.file_uploader(
 st.header("Upload master lookup file (Asset Name → Site)")
 master_file = st.file_uploader(
     "Upload a single CSV file with Asset Name and Site columns",
-    type='csv'
+    type='xlsx'
 )
 
 if not uploaded_files or not master_file:
