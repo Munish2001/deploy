@@ -13,6 +13,7 @@ from openpyxl.formatting.rule import ColorScaleRule
 import matplotlib.pyplot as plt
 import zipfile
 from io import BytesIO 
+import plotly.express as px
 
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="Multi-Process App", page_icon="🔧", layout="wide")
