@@ -53,22 +53,42 @@ if uploaded_file is not None:
         filtered_df = df[mask]
 
         if not filtered_df.empty:
-            st.write("### 📈 Line Chart")
-            fig, ax = plt.subplots(figsize=(12, 6))
+            st.write("### 📈 Line Chart (Styled)")
+
+            fig, ax = plt.subplots(figsize=(14, 7))
+
+            # Define styles
+            line_styles = ['-', '--', '-.', ':']
+            markers = ['o', 's', 'D', '^', 'v', '<', '>']
+            color_cycle = plt.cm.tab10.colors  # 10 distinct colors
+
+            line_count = 0
 
             for asset in selected_assets:
                 asset_data = filtered_df[filtered_df[asset_column] == asset]
                 for col in selected_columns:
-                    ax.plot(asset_data[date_column], asset_data[col], label=f"{asset} - {col}")
+                    style = line_styles[line_count % len(line_styles)]
+                    marker = markers[line_count % len(markers)]
+                    color = color_cycle[line_count % len(color_cycle)]
+                    ax.plot(
+                        asset_data[date_column],
+                        asset_data[col],
+                        label=f"{asset} - {col}",
+                        linestyle=style,
+                        marker=marker,
+                        color=color,
+                        linewidth=2,
+                        markersize=6
+                    )
+                    line_count += 1
 
-            ax.set_xlabel("Date")
-            ax.set_ylabel("Values")
-            ax.set_title("Line Chart of Selected Data")
-            ax.legend()
+            ax.set_xlabel("Date", fontsize=12)
+            ax.set_ylabel("Values", fontsize=12)
+            ax.set_title("Styled Line Chart of Selected Data", fontsize=14)
+            ax.legend(loc="best", fontsize=10)
             ax.grid(True)
+            fig.tight_layout()
 
             st.pyplot(fig)
         else:
             st.warning("No data available for the selected filters.")
-    else:
-        st.warning("Please select Asset(s), Column(s), and Date Range to plot.")
