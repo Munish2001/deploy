@@ -430,7 +430,7 @@ if uploaded_files:
 
         # Show charts
         st.subheader("Temperature Exceedance Charts")
-        charts = plot_exceedance_charts(compiled_df)
+        charts = plot_exceedance_charts_plotly(compiled_df)
         for asset, fig in charts.items():
             st.markdown(f"**{asset}**")
             st.pyplot(fig)
