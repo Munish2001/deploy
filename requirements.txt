@@ -4,3 +4,4 @@ openpyxl==3.1.2
 matplotlib
 streamlit-aggrid
 chardet
+plotly
