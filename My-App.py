@@ -18,30 +18,39 @@ if uploaded_file is not None:
 
     # Step 3: User selections
     with st.sidebar:
-        st.header("🔍 Filter Options")
+    st.header("🔍 Filter Options")
 
-        # List 1: Select Asset Name
-        asset_column = st.selectbox("Select Asset Name Column", df.columns)
-        asset_names = df[asset_column].unique().tolist()
-        selected_assets = st.multiselect("Select Asset(s)", asset_names)
+    # Select asset column
+    asset_column = st.selectbox("Select Asset Name Column", df.columns)
+    asset_names = df[asset_column].unique().tolist()
+    selected_assets = st.multiselect("Select Asset(s)", asset_names)
 
-        # List 2: Select measurement columns
-        numeric_columns = df.select_dtypes(include=['float64', 'int64']).columns.tolist()
-        selected_columns = st.multiselect("Select columns to plot", numeric_columns)
+    # Select measurement columns (only numeric)
+    numeric_columns = df.select_dtypes(include=['float64', 'int64']).columns.tolist()
+    selected_columns = st.multiselect("Select columns to plot", numeric_columns)
 
-        # List 3: Select Date Column
-        date_column = st.selectbox("Select Date Column", df.columns)
+    # Select date column
+    date_column = st.selectbox("Select Date Column", df.columns)
 
     # Filter data based on selections
-    if selected_assets and selected_columns and date_column:
-        filtered_df = df[df[asset_column].isin(selected_assets)]
+    if selected_assets and selected_columns and len(selected_date_range) == 2:
+    start_date, end_date = selected_date_range
+    mask = (
+        df[asset_column].isin(selected_assets) &
+        (df[date_column] >= pd.to_datetime(start_date)) &
+        (df[date_column] <= pd.to_datetime(end_date))
+    )
+    filtered_df = df[mask]
 
         # Convert date column to datetime
         try:
-            filtered_df[date_column] = pd.to_datetime(filtered_df[date_column])
-        except Exception as e:
-            st.error(f"Error parsing dates: {e}")
-            st.stop()
+        df[date_column] = pd.to_datetime(df[date_column])
+        min_date = df[date_column].min().date()
+        max_date = df[date_column].max().date()
+        selected_date_range = st.date_input("Select Date Range", [min_date, max_date])
+    except Exception as e:
+        st.error(f"Date conversion error: {e}")
+        st.stop()
 
         # Step 4: Plot
         st.write("### 📈 Line Chart")
