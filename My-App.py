@@ -32,18 +32,8 @@ if uploaded_file is not None:
     # Select date column
     date_column = st.selectbox("Select Date Column", df.columns)
 
-    # Filter data based on selections
-    if selected_assets and selected_columns and len(selected_date_range) == 2:
-    start_date, end_date = selected_date_range
-    mask = (
-        df[asset_column].isin(selected_assets) &
-        (df[date_column] >= pd.to_datetime(start_date)) &
-        (df[date_column] <= pd.to_datetime(end_date))
-    )
-    filtered_df = df[mask]
-
-        # Convert date column to datetime
-        try:
+    # Convert date column to datetime for filtering
+    try:
         df[date_column] = pd.to_datetime(df[date_column])
         min_date = df[date_column].min().date()
         max_date = df[date_column].max().date()
