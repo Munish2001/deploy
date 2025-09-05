@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
+# Uncomment below if you want to use chardet for auto-encoding detection
+# import chardet
 
 # === Settings ===
 active_power_threshold = 500
@@ -30,16 +32,26 @@ uploaded_files = st.file_uploader(
 st.header("Upload master lookup file (Asset Name → Site)")
 master_file = st.file_uploader(
     "Upload a single CSV file with Asset Name and Site columns",
-    type='xlsx'
+    type='csv'
 )
 
 if not uploaded_files or not master_file:
     st.info("Please upload both main CSV files and the master lookup file to proceed.")
     st.stop()
 
-# --- Read master lookup ---
+# --- Read master lookup with encoding fix ---
 try:
-    master_df = pd.read_csv(master_file)
+    # Option 1: Read with latin1 encoding (common fix for decoding issues)
+    master_df = pd.read_csv(master_file, encoding='latin1')
+
+    # Option 2: Uncomment below to try automatic encoding detection (requires chardet package)
+    # master_file.seek(0)
+    # rawdata = master_file.read()
+    # result = chardet.detect(rawdata)
+    # encoding = result['encoding']
+    # master_file.seek(0)
+    # master_df = pd.read_csv(master_file, encoding=encoding)
+
     if 'Asset Name' not in master_df.columns or 'Site' not in master_df.columns:
         st.error("Master file must contain 'Asset Name' and 'Site' columns.")
         st.stop()
