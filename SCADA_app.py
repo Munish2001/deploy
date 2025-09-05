@@ -349,12 +349,14 @@ def create_excel(compiled_df, filtered_df, max_df, result_df):
 def plot_exceedance_charts_plotly(compiled_df, selected_metrics):
     charts = {}
     for asset, group in compiled_df.groupby('Asset Name'):
+        if asset not in selected_assets:
+            continue
         plot_columns = [col for col in selected_metrics if col in group.columns]
-        
+
         if not plot_columns:
             continue
 
-        # Melt data for Plotly (long format)
+        # Melt data for Plotly
         melted_df = group.melt(
             id_vars=["Date"],
             value_vars=plot_columns,
@@ -362,7 +364,7 @@ def plot_exceedance_charts_plotly(compiled_df, selected_metrics):
             value_name="Value"
         )
 
-        # Add column for limit lines (even if not exceeded)
+        # Add limit lines for only selected metrics
         melted_df["Limit"] = melted_df["Metric"].map(thresholds)
 
         # Build interactive plot
@@ -412,69 +414,91 @@ if uploaded_files:
     compiled_df, filtered_df, max_df, result_df = process_data(tmp_files)
 
     if compiled_df is not None:
-        st.subheader("🔍 Filter Options")
+    st.subheader("Filter Options")
 
-        # --- Asset Name Filter ---
-        asset_names = compiled_df['Asset Name'].dropna().unique().tolist()
-        selected_assets = st.multiselect("Select Asset(s)", asset_names, default=asset_names)
-        selected_metrics = st.multiselect("Select temperature metrics to display in charts:", options=temp_columns, default=temp_columns)
+    # Assets selection - unique asset names from compiled_df
+    assets = compiled_df['Asset Name'].unique()
+    selected_assets = st.multiselect("Select Assets:", options=assets, default=assets)
 
+    # Temperature parameters selection
+    selected_metrics = st.multiselect(
+        "Select temperature parameters:",
+        options=temp_columns,
+        default=temp_columns
+    )
 
-        # --- Temperature Column Filter ---
-        available_temp_cols = [col for col in temp_columns if col in compiled_df.columns]
-        selected_temp_cols = st.multiselect("Select Temperature Columns", available_temp_cols, default=available_temp_cols)
+    # Date range filter
+    min_date = compiled_df['Date'].min()
+    max_date = compiled_df['Date'].max()
+    selected_date_range = st.date_input(
+        "Select Date Range:",
+        value=(min_date.date(), max_date.date()),
+        min_value=min_date.date(),
+        max_value=max_date.date()
+    )
 
-        # --- Date Range Filter ---
-        try:
-            date_min = compiled_df['Date'].min().date()
-            date_max = compiled_df['Date'].max().date()
-            date_range = st.date_input("Select Date Range", [date_min, date_max])
-        except Exception as e:
-            st.warning("Date column error. Check your 'Date' format.")
-            st.stop()
+    # === Apply Filters ===
+    filtered_view_df = compiled_df.copy()
 
-        # === Apply Filters ===
-        filtered_view_df = compiled_df.copy()
+    # 1. Filter by selected assets
+    if selected_assets:
+        filtered_view_df = filtered_view_df[filtered_view_df['Asset Name'].isin(selected_assets)]
 
-        if selected_assets:
-            filtered_view_df = filtered_view_df[filtered_view_df['Asset Name'].isin(selected_assets)]
-            result_df = result_df[result_df['Asset Name'].isin(selected_assets)]
+    # 2. Filter by selected date range
+    if len(selected_date_range) == 2:
+        start_date = pd.to_datetime(selected_date_range[0])
+        end_date = pd.to_datetime(selected_date_range[1])
+        filtered_view_df = filtered_view_df[
+            (filtered_view_df['Date'] >= start_date) &
+            (filtered_view_df['Date'] <= end_date)
+        ]
 
-        if len(date_range) == 2:
-            start_date = pd.to_datetime(date_range[0])
-            end_date = pd.to_datetime(date_range[1])
-            filtered_view_df = filtered_view_df[
-                (filtered_view_df['Date'] >= start_date) &
-                (filtered_view_df['Date'] <= end_date)
-            ]
+    # 3. Re-filter filtered_df (active power > 0) based on filtered_view_df
+    filtered_filtered_df = filtered_view_df[filtered_view_df['ActivepowerGeneration'] > 0]
 
-        if filtered_view_df.empty:
-            st.warning("⚠️ No data matching selected filters.")
+    # 4. Recalculate max_df based on filtered data
+    max_df = filtered_filtered_df.groupby('Asset Name')[temp_columns + ['ActivepowerGeneration']].max().reset_index()
+
+    # 5. Recalculate result_df flags
+    result_df = max_df.copy()
+    result_df['Temp11'] = (result_df[temp_columns[0]] > 90).astype(int)
+    result_df['Temp22'] = (result_df[temp_columns[1]] > 90).astype(int)
+    result_df['Temp33'] = (result_df[temp_columns[2]] > 90).astype(int)
+    result_df['Temp44'] = (result_df[temp_columns[3]] > 90).astype(int)
+    result_df['Temp55'] = (result_df[temp_columns[4]] > 60).astype(int)
+    result_df['Temp66'] = (result_df[temp_columns[5]] > 80).astype(int)
+    result_df['TempSum'] = result_df[['Temp11', 'Temp22', 'Temp33', 'Temp44', 'Temp55', 'Temp66']].sum(axis=1)
+
+    # 6. Filter columns of result_df to show based on selected_metrics
+    cols_to_show = ['Asset Name', 'ActivepowerGeneration'] + selected_metrics + ['Temp11', 'Temp22', 'Temp33', 'Temp44', 'Temp55', 'Temp66', 'TempSum']
+
+    if filtered_view_df.empty:
+        st.warning("⚠️ No data matching selected filters.")
+    else:
+        st.success(f"✅ Showing data for {len(filtered_view_df)} rows.")
+
+        # Show filtered result table with selected columns
+        st.subheader("📋 Result Data with Flags")
+        st.dataframe(result_df[cols_to_show])
+
+        # Excel download - pass filtered dfs!
+        excel_buffer = create_excel(filtered_view_df, filtered_filtered_df, max_df, result_df)
+        st.download_button(
+            label="Download Excel Report",
+            data=excel_buffer,
+            file_name="final_report.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
+        # Filtered Charts
+        st.subheader("📈 Temperature Exceedance Charts")
+
+        # Pass filtered data and selected metrics for plotting
+        charts = plot_exceedance_charts_plotly(filtered_view_df, selected_metrics)
+
+        if not charts:
+            st.info("No temperature exceedance detected for selected filters.")
         else:
-            st.success(f"✅ Showing data for {len(filtered_view_df)} rows.")
-
-            # Show result table
-            st.subheader("📋 Result Data with Flags")
-            st.dataframe(result_df)
-
-            # Excel download
-            excel_buffer = create_excel(compiled_df, filtered_df, max_df, result_df)
-            st.download_button(
-                label="Download Excel Report",
-                data=excel_buffer,
-                file_name="final_report.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-
-            # Filtered Charts
-            st.subheader("📈 Temperature Exceedance Charts")
-
-            # Only plot for filtered assets
-            charts = plot_exceedance_charts_plotly(compiled_df, selected_metrics)
-
-            if not charts:
-                st.info("No temperature exceedance detected for selected filters.")
-            else:
-                for asset, fig in charts.items():
-                    st.markdown(f"**{asset}**")
-                    st.plotly_chart(fig, use_container_width=True)
+            for asset, fig in charts.items():
+                st.markdown(f"**{asset}**")
+                st.plotly_chart(fig, use_container_width=True)
