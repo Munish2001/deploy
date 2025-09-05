@@ -402,78 +402,78 @@ def plot_exceedance_charts_plotly(compiled_df, selected_metrics):
 uploaded_files = st.file_uploader("Upload CSV files", accept_multiple_files=True, type='csv')
 
 if uploaded_files:
-    # Save uploaded files to temp dir (in-memory)
-    tmp_files = []
-    for uploaded_file in uploaded_files:
-        tmp_files.append(uploaded_file)
+    compiled_df, filtered_df, max_df, result_df = process_data(uploaded_files)
 
-    # Process files
-    compiled_df, filtered_df, max_df, result_df = process_data(tmp_files)
+    if compiled_df is not None:
+        st.subheader("Filter Options")
 
-if compiled_df is not None:
-    st.subheader("Filter Options")
+        # Asset selection
+        assets = compiled_df['Asset Name'].unique()
+        selected_assets = st.multiselect("Select Assets:", options=assets, default=assets)
 
-    # Asset selection
-    assets = compiled_df['Asset Name'].unique()
-    selected_assets = st.multiselect("Select Assets:", options=assets, default=assets)
-
-    # Temperature parameter selection
-    selected_metrics = st.multiselect(
-        "Select Temperature Parameters:",
-        options=temp_columns,
-        default=temp_columns
-    )
-
-    # Date range filter
-    min_date = compiled_df['Date'].min()
-    max_date = compiled_df['Date'].max()
-    selected_date_range = st.date_input(
-        "Select Date Range:",
-        value=(min_date.date(), max_date.date()),
-        min_value=min_date.date(),
-        max_value=max_date.date()
-    )
-
-    # === Apply Filters ===
-    filtered_view_df = compiled_df.copy()
-
-    if selected_assets:
-        filtered_view_df = filtered_view_df[filtered_view_df['Asset Name'].isin(selected_assets)]
-        result_df = result_df[result_df['Asset Name'].isin(selected_assets)]
-
-    if selected_date_range and len(selected_date_range) == 2:
-        start_date = pd.to_datetime(selected_date_range[0])
-        end_date = pd.to_datetime(selected_date_range[1])
-        filtered_view_df = filtered_view_df[
-            (filtered_view_df['Date'] >= start_date) &
-            (filtered_view_df['Date'] <= end_date)
-        ]
-
-    if filtered_view_df.empty:
-        st.warning("⚠️ No data matching selected filters.")
-    else:
-        st.success(f"✅ Showing data for {len(filtered_view_df)} rows.")
-
-        # Show result table
-        st.subheader("📋 Result Data with Flags")
-        st.dataframe(result_df)
-
-        # Excel download
-        excel_buffer = create_excel(compiled_df, filtered_df, max_df, result_df)
-        st.download_button(
-            label="Download Excel Report",
-            data=excel_buffer,
-            file_name="final_report.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        # Temperature parameter selection
+        selected_metrics = st.multiselect(
+            "Select Temperature Parameters:",
+            options=temp_columns,
+            default=temp_columns
         )
 
-        # Filtered Charts
-        st.subheader("📈 Temperature Exceedance Charts")
-        charts = plot_exceedance_charts_plotly(filtered_view_df, selected_metrics)
+        # Date range filter
+        min_date = compiled_df['Date'].min()
+        max_date = compiled_df['Date'].max()
+        selected_date_range = st.date_input(
+            "Select Date Range:",
+            value=(min_date.date(), max_date.date()),
+            min_value=min_date.date(),
+            max_value=max_date.date()
+        )
 
-        if not charts:
-            st.info("No temperature exceedance detected for selected filters.")
+        # === Apply Filters ===
+        filtered_view_df = compiled_df.copy()
+
+        # Filter by asset
+        if selected_assets:
+            filtered_view_df = filtered_view_df[filtered_view_df['Asset Name'].isin(selected_assets)]
+            result_df = result_df[result_df['Asset Name'].isin(selected_assets)]
+
+        # Filter by date
+        if selected_date_range and len(selected_date_range) == 2:
+            start_date = pd.to_datetime(selected_date_range[0])
+            end_date = pd.to_datetime(selected_date_range[1])
+            filtered_view_df = filtered_view_df[
+                (filtered_view_df['Date'] >= start_date) & 
+                (filtered_view_df['Date'] <= end_date)
+            ]
+
+        if filtered_view_df.empty:
+            st.warning("⚠️ No data matching selected filters.")
         else:
-            for asset, fig in charts.items():
-                st.markdown(f"**{asset}**")
-                st.plotly_chart(fig, use_container_width=True)
+            st.success(f"✅ Showing data for {len(filtered_view_df)} rows.")
+
+            # 🔍 Show only selected columns in the result
+            display_columns = ['Asset Name'] + selected_metrics + ['ActivepowerGeneration']
+            filtered_result_df = result_df[display_columns]
+
+            # Display filtered result table
+            st.subheader("📋 Result Data with Flags")
+            st.dataframe(filtered_result_df)
+
+            # Download full result (not just filtered)
+            excel_buffer = create_excel(compiled_df, filtered_df, max_df, result_df)
+            st.download_button(
+                label="Download Excel Report",
+                data=excel_buffer,
+                file_name="final_report.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+
+            # 📈 Plot filtered charts
+            st.subheader("📈 Temperature Exceedance Charts")
+            charts = plot_exceedance_charts_plotly(filtered_view_df, selected_metrics)
+
+            if not charts:
+                st.info("No temperature exceedance detected for selected filters.")
+            else:
+                for asset, fig in charts.items():
+                    st.markdown(f"**{asset}**")
+                    st.plotly_chart(fig, use_container_width=True)
