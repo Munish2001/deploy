@@ -346,10 +346,10 @@ def create_excel(compiled_df, filtered_df, max_df, result_df):
     excel_buffer.seek(0)
     return excel_buffer
 
-def plot_exceedance_charts_plotly(compiled_df):
+def plot_exceedance_charts_plotly(compiled_df, selected_metrics):
     charts = {}
     for asset, group in compiled_df.groupby('Asset Name'):
-        plot_columns = [col for col in temp_columns if col in group.columns]
+        plot_columns = [col for col in selected_metrics if col in group.columns]
         
         if not plot_columns:
             continue
@@ -417,6 +417,8 @@ if uploaded_files:
         # --- Asset Name Filter ---
         asset_names = compiled_df['Asset Name'].dropna().unique().tolist()
         selected_assets = st.multiselect("Select Asset(s)", asset_names, default=asset_names)
+        selected_metrics = st.multiselect("Select temperature metrics to display in charts:", options=temp_columns, default=temp_columns)
+
 
         # --- Temperature Column Filter ---
         available_temp_cols = [col for col in temp_columns if col in compiled_df.columns]
@@ -468,7 +470,7 @@ if uploaded_files:
             st.subheader("📈 Temperature Exceedance Charts")
 
             # Only plot for filtered assets
-            charts = plot_exceedance_charts_plotly(filtered_view_df)
+            charts = plot_exceedance_charts_plotly(compiled_df, selected_metrics)
 
             if not charts:
                 st.info("No temperature exceedance detected for selected filters.")
