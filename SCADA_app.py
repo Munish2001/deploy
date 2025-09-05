@@ -345,7 +345,7 @@ def create_excel(compiled_df, filtered_df, max_df, result_df):
     excel_buffer.seek(0)
     return excel_buffer
 
-def plot_exceedance_charts(compiled_df):
+def plot_exceedance_charts_plotly(compiled_df):
     charts = {}
     for asset, group in compiled_df.groupby('Asset Name'):
         exceeded_cols = []
@@ -356,26 +356,48 @@ def plot_exceedance_charts(compiled_df):
         if not exceeded_cols:
             continue
 
-        fig, ax = plt.subplots(figsize=(12, 5))
-        for col in exceeded_cols:
-            limit = thresholds[col]
-            ax.plot(group['Date'], group[col], label=col)
+        # Melt data for Plotly (long format)
+        melted_df = group.melt(
+            id_vars=["Date"],
+            value_vars=exceeded_cols,
+            var_name="Metric",
+            value_name="Value"
+        )
 
-            exceed_rows = group[group[col] > limit]
-            if not exceed_rows.empty:
-                ax.scatter(exceed_rows['Date'], exceed_rows[col], color='red', label=f'{col} Exceed')
+        # Add column for limit lines
+        melted_df["Limit"] = melted_df["Metric"].map(thresholds)
 
-            ax.axhline(y=limit, linestyle='--', color='black', linewidth=1, label=f'{col} Limit: {limit}°C')
+        # Build interactive plot
+        fig = px.line(
+            melted_df,
+            x="Date",
+            y="Value",
+            color="Metric",
+            title=f"📈 Temperature Exceedance for {asset}",
+            template="plotly_dark",
+            markers=True
+        )
 
-        ax.set_title(f'Temperature Exceedance for {asset}')
-        ax.set_xlabel('Date')
-        ax.set_ylabel('Temperature (°C)')
-        ax.legend(loc='upper right')
-        plt.xticks(rotation=45)
-        plt.tight_layout()
+        # Add limit lines
+        for metric in exceeded_cols:
+            limit = thresholds[metric]
+            fig.add_hline(
+                y=limit,
+                line_dash="dash",
+                line_color="white",
+                annotation_text=f"{metric} Limit: {limit}°C",
+                annotation_position="top right"
+            )
+
+        fig.update_layout(
+            xaxis_title="Date",
+            yaxis_title="Temperature (°C)",
+            hovermode="x unified"
+        )
+
         charts[asset] = fig
-    return charts
 
+    return charts
 
 # === Streamlit UI ===
 
