@@ -414,7 +414,7 @@ if uploaded_files:
     compiled_df, filtered_df, max_df, result_df = process_data(tmp_files)
 
     if compiled_df is not None:
-    st.subheader("Filter Options")
+    st.subheader("Filter Options")  # <-- indented here
 
     # Assets selection - unique asset names from compiled_df
     assets = compiled_df['Asset Name'].unique()
