@@ -409,7 +409,7 @@ if uploaded_files:
     # Process files
     compiled_df, filtered_df, max_df, result_df = process_data(tmp_files)
 
-    if compiled_df is not None:
+if compiled_df is not None:
     st.subheader("Filter Options")
 
     # Asset selection
